@@ -35,6 +35,18 @@ pub const Mode = packed struct {
     echo: bool = true,
 };
 
+pub const ProcessInfo = enum {
+    child_pid,
+    foreground_pid,
+
+    pub fn Type(comptime info: ProcessInfo) type {
+        return switch (info) {
+            .child_pid => u64,
+            .foreground_pid => u64,
+        };
+    }
+};
+
 // A pty implementation that does nothing.
 //
 // TODO: This should be removed. This is only temporary until we have
@@ -78,6 +90,10 @@ const NullPty = struct {
     pub fn childPreExec(self: Pty) ChildPreExecError!void {
         _ = self;
     }
+
+    pub fn getProcessInfo(_: *Pty, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
+        return null;
+    }
 };
 
 /// Linux PTY creation and management. This is just a thin layer on top
@@ -97,10 +113,12 @@ const PosixPty = struct {
     const c = switch (builtin.os.tag) {
         .macos => @cImport({
             @cInclude("sys/ioctl.h"); // ioctl and constants
+            @cInclude("unistd.h"); // tcgetpgrp()
             @cInclude("util.h"); // openpty()
         }),
         .freebsd => @cImport({
             @cInclude("termios.h"); // ioctl and constants
+            @cInclude("unistd.h"); // tcgetpgrp()
             @cInclude("libutil.h"); // openpty()
         }),
         else => @cImport({
@@ -248,6 +266,29 @@ const PosixPty = struct {
         // Can close master/slave pair now
         posix.close(self.slave);
         posix.close(self.master);
+    }
+    pub fn getProcessInfo(self: *PosixPty, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
+        return switch (info) {
+            .child_pid => null,
+            .foreground_pid => {
+                switch (builtin.os.tag) {
+                    .linux => {
+                        const linux = std.os.linux;
+                        var pgrp: i32 = undefined;
+                        const rc = linux.tcgetpgrp(self.master, &pgrp);
+                        switch (linux.E.init(rc)) {
+                            .SUCCESS => return @intCast(pgrp),
+                            else => return null,
+                        }
+                    },
+                    else => {
+                        const rc = c.tcgetpgrp(self.master);
+                        if (rc < 0) return null;
+                        return @intCast(rc);
+                    },
+                }
+            },
+        };
     }
 };
 

@@ -1598,6 +1598,16 @@ pub const CAPI = struct {
         return surface.core_surface.child_exited;
     }
 
+    /// Returns the child process id for the surface's PTY.
+    export fn ghostty_surface_child_process_id(surface: *Surface) u64 {
+        return surface.core_surface.getProcessInfo(.child_pid) orelse 0;
+    }
+
+    /// Returns the foreground process group id for the surface's PTY.
+    export fn ghostty_surface_foreground_process_group(surface: *Surface) u64 {
+        return surface.core_surface.getProcessInfo(.foreground_pid) orelse 0;
+    }
+
     /// Returns true if the surface has a selection.
     export fn ghostty_surface_has_selection(surface: *Surface) bool {
         return surface.core_surface.hasSelection();

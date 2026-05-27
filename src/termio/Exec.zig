@@ -24,6 +24,7 @@ const Command = @import("../Command.zig");
 const SegmentedPool = @import("../datastruct/main.zig").SegmentedPool;
 const ptypkg = @import("../pty.zig");
 const Pty = ptypkg.Pty;
+const ProcessInfo = ptypkg.ProcessInfo;
 const EnvMap = std.process.EnvMap;
 const PasswdEntry = internal_os.passwd.Entry;
 const windows = internal_os.windows;
@@ -1225,6 +1226,19 @@ const Subprocess = struct {
     /// This sends a signal via the Flatpak API.
     fn killCommandFlatpak(command: *FlatpakHostCommand) !void {
         try command.signal(c.SIGHUP, true);
+    }
+
+    pub fn getProcessInfo(self: *Subprocess, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
+        if (info == .child_pid) {
+            const process = self.process orelse return null;
+            return switch (process) {
+                .fork_exec => |cmd| if (cmd.pid) |pid| @intCast(pid) else null,
+                .flatpak => null,
+            };
+        }
+
+        const pty = &(self.pty orelse return null);
+        return pty.getProcessInfo(info);
     }
 };
 

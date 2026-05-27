@@ -33,6 +33,7 @@ const configpkg = @import("config.zig");
 const Duration = configpkg.Config.Duration;
 const input = @import("input.zig");
 const App = @import("App.zig");
+const ProcessInfo = @import("pty.zig").ProcessInfo;
 const internal_os = @import("os/main.zig");
 const inspectorpkg = @import("inspector/main.zig");
 const SurfaceMouse = @import("surface_mouse.zig");
@@ -2007,6 +2008,10 @@ pub fn dumpTextLocked(
         .text = text,
         .viewport = vp,
     };
+}
+
+pub fn getProcessInfo(self: *Surface, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
+    return self.io.getProcessInfo(info);
 }
 
 /// Returns true if the terminal has a selection.
