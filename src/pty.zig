@@ -37,6 +37,8 @@ pub const Mode = packed struct {
 };
 
 pub const ProcessInfo = enum {
+    /// The PID of the child process that owns the PTY session.
+    child_pid,
     /// The PID of the process that controls the PTY.
     foreground_pid,
     /// Gets the name of the slave PTY. Returned name points to an internal buffer
@@ -45,6 +47,7 @@ pub const ProcessInfo = enum {
 
     pub fn Type(comptime info: ProcessInfo) type {
         return switch (info) {
+            .child_pid => u64,
             .foreground_pid => u64,
             .tty_name => [:0]const u8,
         };
@@ -269,6 +272,7 @@ const PosixPty = struct {
     /// is not available on a particular platform.
     pub fn getProcessInfo(self: *PosixPty, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
         return switch (info) {
+            .child_pid => null,
             .foreground_pid => {
                 switch (builtin.os.tag) {
                     .linux => {

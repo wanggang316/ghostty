@@ -1232,6 +1232,14 @@ const Subprocess = struct {
     /// Returns `null` if there was an error getting the information or the
     /// information is not available on a particular platform.
     pub fn getProcessInfo(self: *Subprocess, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
+        if (info == .child_pid) {
+            const process = self.process orelse return null;
+            return switch (process) {
+                .fork_exec => |cmd| if (cmd.pid) |pid| @intCast(pid) else null,
+                .flatpak => null,
+            };
+        }
+
         const pty = &(self.pty orelse return null);
         return pty.getProcessInfo(info);
     }
