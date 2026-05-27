@@ -59,6 +59,10 @@ pub fn deinit(self: *Exec) void {
     self.subprocess.deinit();
 }
 
+pub fn getProcessInfo(self: *Exec, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
+    return self.subprocess.getProcessInfo(info);
+}
+
 /// Call to initialize the terminal state as necessary for this backend.
 /// This is called before any termio begins. This should not be called
 /// after termio begins because it may put the internal terminal state
