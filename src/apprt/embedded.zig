@@ -1685,7 +1685,15 @@ pub const CAPI = struct {
         return true;
     }
 
-    export fn ghostty_surface_free_text(ptr: *Text) void {
+    /// The leading `surface` parameter matches the C header
+    /// (`ghostty_surface_free_text(ghostty_surface_t, ghostty_text_s*)`) and
+    /// every caller. It is intentionally unused — `Text.deinit` frees via
+    /// `global.alloc` — but it MUST stay in the signature: dropping it shifts
+    /// `ptr` to the wrong argument register, so `deinit` would run on the
+    /// surface pointer instead and silently free nothing, leaking every
+    /// read_text / read_selection result buffer.
+    export fn ghostty_surface_free_text(surface: *Surface, ptr: *Text) void {
+        _ = surface;
         ptr.deinit();
     }
 
