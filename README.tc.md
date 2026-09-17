@@ -29,6 +29,12 @@ symbols can delegate down to the existing pty layer.
 - `fix(termio): expose getProcessInfo on Exec backend` — adds the
   `Exec.getProcessInfo` delegation so `Backend.getProcessInfo`'s dispatch
   compiles. Required follow-up after the accessor patch lands.
+- `build: normalize input archives before Darwin libtool merge` — backport of
+  upstream ghostty-org/ghostty#11999 (`a83a82b3f8`, not in any 1.3.x tag).
+  Recent Apple libtool (seen with Xcode 26.6) silently drops zig-written
+  archive members that are not 8-byte aligned, which leaves
+  `libghostty-fat.a` incomplete.
+  Drop this patch once the fork base includes the upstream commit.
 
 ## Upstream PR Status
 
@@ -41,7 +47,8 @@ fork can retire.
 
 1. Choose a stable upstream release tag.
 2. Create a fork branch named `<upstream-tag>-tc` from that tag.
-3. Cherry-pick the two patches above in order.
+3. Cherry-pick the patches above in order, skipping any that the new tag
+   already contains.
 4. Build `GhosttyKit.xcframework` through the existing Tuist flow.
 5. Run the macOS app build and active-agent detection tests.
 6. Update `.gitmodules` to point at the new branch.
