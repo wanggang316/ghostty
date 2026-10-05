@@ -460,6 +460,17 @@ pub const Surface = struct {
 
         /// Context for the new surface
         context: apprt.surface.NewSurfaceContext = .window,
+
+        /// Argv prepended to the fully resolved command (after shell
+        /// detection, shell integration and the macOS login(1) wrapping),
+        /// so the resolved command runs as a child of the wrapper. Each
+        /// element is one already-split argument. Null or a zero count
+        /// means no wrapper.
+        command_wrapper: ?[*]const [*:0]const u8 = null,
+        command_wrapper_count: usize = 0,
+
+        /// Force `shell-integration = none` for this surface only.
+        disable_shell_integration: bool = false,
     };
 
     pub fn init(self: *Surface, app: *App, opts: Options) !void {
@@ -532,6 +543,21 @@ pub const Surface = struct {
                 config.command = .{ .shell = cmd };
                 config.@"wait-after-command" = true;
             }
+        }
+
+        if (opts.command_wrapper) |c_wrapper| {
+            if (opts.command_wrapper_count > 0) {
+                const alloc = config.arenaAlloc();
+                const argv = try alloc.alloc([:0]const u8, opts.command_wrapper_count);
+                for (c_wrapper[0..opts.command_wrapper_count], 0..) |arg, i| {
+                    argv[i] = try alloc.dupeZ(u8, std.mem.sliceTo(arg, 0));
+                }
+                config._command_wrapper = argv;
+            }
+        }
+
+        if (opts.disable_shell_integration) {
+            config.@"shell-integration" = .none;
         }
 
         // Apply any environment variables that were requested.

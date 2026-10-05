@@ -563,6 +563,7 @@ pub const ThreadData = struct {
 
 pub const Config = struct {
     command: ?configpkg.Command = null,
+    command_wrapper: ?[]const [:0]const u8 = null,
     env: EnvMap,
     env_override: configpkg.RepeatableStringMap = .{},
     shell_integration: configpkg.Config.ShellIntegration = .detect,
@@ -819,7 +820,7 @@ const Subprocess = struct {
         }
 
         // Build our args list
-        const args: []const [:0]const u8 = execCommand(
+        const resolved_args: []const [:0]const u8 = execCommand(
             alloc,
             shell_command,
             internal_os.passwd,
@@ -843,6 +844,17 @@ const Subprocess = struct {
             // This logs on its own, this is a bad error.
             error.SystemError => return err,
         };
+
+        // An embedder-supplied wrapper goes in front of the fully resolved
+        // command — after login(1) wrapping and any shell-integration
+        // rewrite — so that whole command runs as the wrapper's child.
+        const args: []const [:0]const u8 = if (cfg.command_wrapper) |wrapper| wrap: {
+            if (wrapper.len == 0) break :wrap resolved_args;
+            const combined = try alloc.alloc([:0]const u8, wrapper.len + resolved_args.len);
+            for (wrapper, 0..) |arg, i| combined[i] = try alloc.dupeZ(u8, arg);
+            @memcpy(combined[wrapper.len..], resolved_args);
+            break :wrap combined;
+        } else resolved_args;
 
         // We have to copy the cwd because there is no guarantee that
         // pointers in full_config remain valid.

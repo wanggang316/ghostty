@@ -635,6 +635,7 @@ pub fn init(
         // Initialize our IO backend
         var io_exec = try termio.Exec.init(alloc, .{
             .command = command,
+            .command_wrapper = config._command_wrapper,
             .env = env,
             .env_override = config.env,
             .shell_integration = config.@"shell-integration",

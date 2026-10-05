@@ -3768,6 +3768,13 @@ term: []const u8 = "xterm-ghostty",
 /// This is set by the CLI parser for deinit.
 _arena: ?ArenaAllocator = null,
 
+/// Argv prepended to the fully resolved command of a surface, set only by
+/// an embedder through the surface options (never parsed from a file).
+/// It lets the embedder run the shell under a supervisor — a session-
+/// persistence multiplexer — while Ghostty still resolves the shell,
+/// injects shell integration and applies the macOS login(1) wrapping.
+_command_wrapper: ?[]const [:0]const u8 = null,
+
 /// List of diagnostics that were generated during the loading of
 /// the configuration.
 _diagnostics: cli.DiagnosticList = .{},
