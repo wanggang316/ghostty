@@ -8614,13 +8614,18 @@ pub const ShellIntegration = enum {
 };
 
 /// Shell integration features
+// The defaults below differ from upstream for the embedding app (see
+// README.tc.md): `sudo` and `ssh-env` on, `title` and `path` off. They live
+// on the struct because every `shell-integration-features` assignment
+// starts from these defaults, so a layered config file could not set them
+// without being reset by the user's own line.
 pub const ShellIntegrationFeatures = packed struct {
     cursor: bool = true,
-    sudo: bool = false,
-    title: bool = true,
-    @"ssh-env": bool = false,
+    sudo: bool = true,
+    title: bool = false,
+    @"ssh-env": bool = true,
     @"ssh-terminfo": bool = false,
-    path: bool = true,
+    path: bool = false,
 };
 
 pub const SplitPreserveZoom = packed struct {
