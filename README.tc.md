@@ -29,6 +29,17 @@ symbols can delegate down to the existing pty layer.
 - `fix(termio): expose getProcessInfo on Exec backend` — adds the
   `Exec.getProcessInfo` delegation so `Backend.getProcessInfo`'s dispatch
   compiles. Required follow-up after the accessor patch lands.
+- `feat(apprt): add a per-surface command wrapper and integration opt-out` —
+  `ghostty_surface_config_s.command_wrapper` / `command_wrapper_count` /
+  `disable_shell_integration`. The wrapper argv is prepended after
+  `execCommand` (login(1) wrapping and shell-integration rewrite included),
+  so touch-code runs each pane as `zmx attach <id> <resolved command>` and
+  Ghostty still detects and integrates the user's real shell. Carried on the
+  private `_command_wrapper` config field; not settable from config files.
+- `feat(config): default shell-integration-features for the embedding app` —
+  `sudo` and `ssh-env` on, `title` and `path` off. Kept on the struct because
+  every `shell-integration-features` assignment starts from the struct
+  defaults, so a layered config file cannot set them.
 - `build: normalize input archives before Darwin libtool merge` — backport of
   upstream ghostty-org/ghostty#11999 (`a83a82b3f8`, not in any 1.3.x tag).
   Recent Apple libtool (seen with Xcode 26.6) silently drops zig-written
