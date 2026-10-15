@@ -471,6 +471,13 @@ pub const Surface = struct {
 
         /// Force `shell-integration = none` for this surface only.
         disable_shell_integration: bool = false,
+
+        /// Initial surface size in device pixels. The child process is
+        /// spawned during init with a PTY sized from this, before the
+        /// embedder can call `ghostty_surface_set_size`. Zero in either
+        /// dimension keeps the 800x600 default.
+        initial_width: u32 = 0,
+        initial_height: u32 = 0,
     };
 
     pub fn init(self: *Surface, app: *App, opts: Options) !void {
@@ -483,7 +490,10 @@ pub const Surface = struct {
                 .x = @floatCast(opts.scale_factor),
                 .y = @floatCast(opts.scale_factor),
             },
-            .size = .{ .width = 800, .height = 600 },
+            .size = if (opts.initial_width > 0 and opts.initial_height > 0)
+                .{ .width = opts.initial_width, .height = opts.initial_height }
+            else
+                .{ .width = 800, .height = 600 },
             .cursor_pos = .{ .x = -1, .y = -1 },
         };
 

@@ -40,6 +40,13 @@ symbols can delegate down to the existing pty layer.
   `sudo` and `ssh-env` on, `title` and `path` off. Kept on the struct because
   every `shell-integration-features` assignment starts from the struct
   defaults, so a layered config file cannot set them.
+- `feat(apprt): seed the embedded surface size from the config` —
+  `ghostty_surface_config_s.initial_width` / `initial_height` (device
+  pixels). The child is spawned during `ghostty_surface_new` with a PTY
+  sized from the surface size, before the embedder can push one, so without
+  this every child starts at 800x600 px. touch-code passes the pane's last
+  known size so a `zmx attach` to a live session does not resize the
+  session's TUI through a placeholder width. Zero keeps the default.
 - `build: normalize input archives before Darwin libtool merge` — backport of
   upstream ghostty-org/ghostty#11999 (`a83a82b3f8`, not in any 1.3.x tag).
   Recent Apple libtool (seen with Xcode 26.6) silently drops zig-written
