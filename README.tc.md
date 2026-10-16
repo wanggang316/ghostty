@@ -53,6 +53,17 @@ symbols can delegate down to the existing pty layer.
   archive members that are not 8-byte aligned, which leaves
   `libghostty-fat.a` incomplete.
   Drop this patch once the fork base includes the upstream commit.
+- `feat(terminal): backport the OSC 7501 program status parser` — backport
+  of upstream ghostty-org/ghostty#14560 (parser and kitty metadata iterator
+  only, not the libghostty-vt record API). Drop this patch once the fork base
+  includes the upstream commit.
+- `feat(apprt): expose program status reports (OSC 7501) as an action` —
+  answers the `OSC 7501 ; ?` support query and delivers each report as
+  `GHOSTTY_ACTION_PROGRAM_STATUS` with a pointer to
+  `ghostty_action_program_status_s`; a full reset delivers `clear` with an
+  empty id. The struct mirrors the field set of the upstream libghostty-vt
+  `GhosttyTerminalProgramStatus`. touch-code keeps the records per pane.
+  Upstream has no app-path action, so this patch stays after a rebase.
 
 ## Upstream PR Status
 
