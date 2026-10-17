@@ -318,6 +318,7 @@ pub const StreamHandler = struct {
             .report_pwd => try self.reportPwd(value.url),
             .show_desktop_notification => try self.showDesktopNotification(value.title, value.body),
             .progress_report => self.progressReport(value),
+            .program_status => try self.programStatus(value),
             .start_hyperlink => try self.startHyperlink(value.uri, value.id),
             .clipboard_contents => try self.clipboardContents(value.kind, value.data),
             .semantic_prompt => try self.semanticPrompt(value),
@@ -956,6 +957,12 @@ pub const StreamHandler = struct {
 
         // Clear the progress bar
         self.progressReport(.{ .state = .remove });
+
+        // A full reset removes every program status record.
+        self.surfaceMessageWriter(.{ .program_status = .{
+            .state = .clear,
+            .data = .{ .stable = "" },
+        } });
     }
 
     pub fn queryKittyKeyboard(self: *StreamHandler) !void {
@@ -1547,5 +1554,32 @@ pub const StreamHandler = struct {
     /// Display a GUI progress report.
     fn progressReport(self: *StreamHandler, report: terminal.osc.Command.ProgressReport) void {
         self.surfaceMessageWriter(.{ .progress_report = report });
+    }
+
+    /// Answer the OSC 7501 support query and forward reports to the
+    /// surface. The terminal keeps no records: the embedder keeps them
+    /// (see apprt.action.ProgramStatus).
+    fn programStatus(
+        self: *StreamHandler,
+        cmd: terminal.osc.Command.ProgramStatus,
+    ) !void {
+        switch (cmd) {
+            // Reply with the same terminator as the query. We always
+            // answer because the embedder consumes the reports.
+            .query => |terminator| {
+                const reply = "\x1b]7501;" ++ terminal.osc.program_status.query_reply;
+                self.messageWriter(.{ .write_stable = switch (terminator) {
+                    .st => reply ++ "\x1b\\",
+                    .bel => reply ++ "\x07",
+                } });
+            },
+
+            // The report points into the parser buffer, so copy it
+            // before this returns.
+            .report => |report| self.surfaceMessageWriter(.{ .program_status = .{
+                .state = report.state,
+                .data = try apprt.surface.Message.WriteReq.init(self.alloc, report.data),
+            } }),
+        }
     }
 };
