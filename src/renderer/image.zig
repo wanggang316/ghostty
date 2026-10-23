@@ -36,6 +36,10 @@ pub const State = struct {
     /// Overlays
     overlay_placements: std.ArrayListUnmanaged(Placement),
 
+    /// Grid rows drawn above the viewport (see `RenderState.overscan`).
+    /// Placements are viewport-relative, so they move down by this much.
+    grid_row_offset: i32 = 0,
+
     pub const empty: State = .{
         .images = .empty,
         .kitty_placements = .empty,
@@ -140,7 +144,7 @@ pub const State = struct {
                 &.{.{
                     .grid_pos = .{
                         @as(f32, @floatFromInt(p.x)),
-                        @as(f32, @floatFromInt(p.y)),
+                        @as(f32, @floatFromInt(p.y + self.grid_row_offset)),
                     },
 
                     .cell_offset = .{

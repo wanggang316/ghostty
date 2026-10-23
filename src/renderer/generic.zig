@@ -222,6 +222,11 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
         /// The render state we update per loop.
         terminal_state: terminal.RenderState = .empty,
 
+        /// Rows of `terminal_state` drawn above the viewport, into the
+        /// content inset band. The uniforms place the grid this many rows
+        /// above the top of the viewport.
+        grid_overscan: terminal.size.CellCountInt = 0,
+
         /// The number of frames since the last terminal state reset.
         /// We reset the terminal state after ~100,000 frames (about 10 to
         /// 15 minutes at 120Hz) to prevent wasted memory buildup from
@@ -1199,7 +1204,16 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
                     state.terminal.scrollViewport(.bottom);
                 }
 
-                // Update our terminal state
+                // Update our terminal state. Ask for enough rows above the
+                // viewport to fill the content inset band.
+                self.terminal_state.overscan_request = std.math.cast(
+                    terminal.size.CellCountInt,
+                    std.math.divCeil(
+                        u32,
+                        self.size.content_inset_top,
+                        @max(1, self.grid_metrics.cell_height),
+                    ) catch 0,
+                ) orelse 0;
                 try self.terminal_state.update(self.alloc, state.terminal);
 
                 // If our terminal state is dirty at all we need to redo
@@ -1255,7 +1269,7 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
 
                     break :osc8 self.terminal_state.linkCells(
                         arena_alloc,
-                        vp,
+                        .{ .x = vp.x, .y = vp.y + self.terminal_state.overscan },
                     ) catch |err| {
                         log.warn("error searching for OSC8 links err={}", .{err});
                         break :osc8 .empty;
@@ -1285,7 +1299,10 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
                 arena_alloc,
                 &critical.links,
                 &self.terminal_state,
-                state.mouse.point,
+                if (state.mouse.point) |vp|
+                    .{ .x = vp.x, .y = vp.y + self.terminal_state.overscan }
+                else
+                    null,
                 state.mouse.mods,
             ) catch |err| {
                 log.warn("error searching for regex links err={}", .{err});
@@ -1926,6 +1943,7 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
             // We only actually need the padding from this,
             // everything else is derived elsewhere.
             self.size.padding = size.padding;
+            self.size.content_inset_top = size.content_inset_top;
 
             self.updateScreenSizeUniforms();
 
@@ -1943,7 +1961,7 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
                 self.size.padding,
                 .{
                     .columns = self.cells.size.columns,
-                    .rows = self.cells.size.rows,
+                    .rows = self.cells.size.rows -| self.grid_overscan,
                 },
                 .{
                     .width = self.grid_metrics.cell_width,
@@ -1951,15 +1969,21 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
                 },
             ).add(self.size.padding);
 
+            // The rows above the viewport sit in the top padding: the grid
+            // starts this far above the top of the viewport.
+            const overscan_height: f32 = @floatFromInt(
+                @as(u32, self.grid_overscan) * self.grid_metrics.cell_height,
+            );
+
             // Setup our uniforms
             self.uniforms.projection_matrix = math.ortho2d(
                 -1 * @as(f32, @floatFromInt(self.size.padding.left)),
                 @floatFromInt(terminal_size.width + self.size.padding.right),
-                @floatFromInt(terminal_size.height + self.size.padding.bottom),
-                -1 * @as(f32, @floatFromInt(self.size.padding.top)),
+                @as(f32, @floatFromInt(terminal_size.height + self.size.padding.bottom)) + overscan_height,
+                -1 * @as(f32, @floatFromInt(self.size.padding.top)) + overscan_height,
             );
             self.uniforms.grid_padding = .{
-                @floatFromInt(blank.top),
+                @as(f32, @floatFromInt(blank.top)) - overscan_height,
                 @floatFromInt(blank.right),
                 @floatFromInt(blank.bottom),
                 @floatFromInt(blank.left),
@@ -2146,9 +2170,10 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
                     cursor.grid_pos[0] * cell.width + padding.left,
                 );
                 // Top edge, relative to the top of the
-                // screen, of the cell the cursor is in.
+                // screen, of the cell the cursor is in. The grid starts
+                // `grid_overscan` rows above the top padding.
                 var pixel_y: f32 = @floatFromInt(
-                    cursor.grid_pos[1] * cell.height + padding.top,
+                    (cursor.grid_pos[1] -| self.grid_overscan) * cell.height + padding.top,
                 );
 
                 // If +Y is up in our shaders, we need to flip the coordinate
@@ -2333,6 +2358,12 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
                 // Update our uniforms accordingly, otherwise
                 // our background cells will be out of place.
                 self.uniforms.grid_size = .{ new_size.columns, new_size.rows };
+            }
+
+            if (grid_size_diff or self.grid_overscan != state.overscan) {
+                self.grid_overscan = state.overscan;
+                self.images.grid_row_offset = state.overscan;
+                self.updateScreenSizeUniforms();
             }
 
             const rebuild = state.dirty == .full or grid_size_diff;

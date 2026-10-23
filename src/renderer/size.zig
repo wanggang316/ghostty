@@ -18,6 +18,12 @@ pub const Size = struct {
     cell: CellSize,
     padding: Padding,
 
+    /// Height in pixels of the band at the top of the screen that the host
+    /// covers with its own translucent chrome. `padding.top` is at least
+    /// this, so the grid starts below it. The renderer fills the band with the
+    /// rows above the viewport, so content scrolls under the chrome.
+    content_inset_top: u32 = 0,
+
     /// Return the grid size for this size. The grid size is calculated by
     /// taking the screen size, removing padding, and dividing by the cell
     /// dimensions.

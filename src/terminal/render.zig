@@ -58,6 +58,18 @@ pub const RenderState = struct {
     rows: size.CellCountInt,
     cols: size.CellCountInt,
 
+    /// How many rows above the viewport the caller wants in `row_data`,
+    /// ahead of the viewport rows. A renderer draws them into a band above
+    /// the grid so content scrolls under translucent chrome. Set by the
+    /// caller before `update`.
+    overscan_request: size.CellCountInt = 0,
+
+    /// How many rows above the viewport `row_data` holds. At most
+    /// `overscan_request`, fewer when the screen has less history above the
+    /// viewport. `row_data[overscan]` is the top row of the viewport, and
+    /// `rows` counts these rows too.
+    overscan: size.CellCountInt = 0,
+
     /// The color state for the terminal.
     colors: Colors,
 
@@ -266,6 +278,20 @@ pub const RenderState = struct {
     ) Allocator.Error!void {
         const s: *Screen = t.screens.active;
         const viewport_pin = s.pages.getTopLeft(.viewport);
+
+        // The first row to copy: up to `overscan_request` rows above the
+        // viewport, as many as the screen has.
+        const start_pin: PageList.Pin, const overscan: size.CellCountInt = start: {
+            if (self.overscan_request == 0) break :start .{ viewport_pin, 0 };
+            break :start switch (viewport_pin.upOverflow(self.overscan_request)) {
+                .offset => |p| .{ p, self.overscan_request },
+                .overflow => |o| .{
+                    o.end,
+                    @intCast(self.overscan_request - o.remaining),
+                },
+            };
+        };
+
         const redraw = redraw: {
             // If our screen key changed, we need to do a full rebuild
             // because our render state is viewport-specific.
@@ -288,7 +314,8 @@ pub const RenderState = struct {
             }
 
             // If our dimensions changed, we do a full rebuild.
-            if (self.rows != s.pages.rows or
+            if (self.rows != s.pages.rows + overscan or
+                self.overscan != overscan or
                 self.cols != s.pages.cols)
             {
                 break :redraw true;
@@ -303,7 +330,8 @@ pub const RenderState = struct {
         };
 
         // Always set our cheap fields, its more expensive to compare
-        self.rows = s.pages.rows;
+        self.rows = s.pages.rows + overscan;
+        self.overscan = overscan;
         self.cols = s.pages.cols;
         self.viewport_pin = viewport_pin;
         self.cursor.active = .{ .x = s.cursor.x, .y = s.cursor.y };
@@ -393,10 +421,9 @@ pub const RenderState = struct {
         var last_dirty_page: ?*page.Page = null;
 
         // Go through and setup our rows.
-        var row_it = s.pages.rowIterator(
+        var row_it = start_pin.rowIterator(
             .right_down,
-            .{ .viewport = .{} },
-            null,
+            s.pages.getBottomRight(.viewport),
         );
         var y: size.CellCountInt = 0;
         var any_dirty: bool = false;

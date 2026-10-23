@@ -2538,13 +2538,30 @@ fn resize(self: *Surface, size: rendererpkg.ScreenSize) !void {
     self.queueIo(.{ .resize = self.size }, .unlocked);
 }
 
-/// Recalculate the balanced padding if needed.
+/// Recalculate the padding: the configured padding (balanced if set). The
+/// content inset band covers the top padding, so the top padding is at
+/// least the inset and the grid starts right under the band.
 fn balancePaddingIfNeeded(self: *Surface) void {
-    if (!self.config.window_padding_balance) return;
     const content_scale = try self.rt_surface.getContentScale();
     const x_dpi = content_scale.x * font.face.default_dpi;
     const y_dpi = content_scale.y * font.face.default_dpi;
-    self.size.balancePadding(self.config.scaledPadding(x_dpi, y_dpi));
+    const explicit = self.config.scaledPadding(x_dpi, y_dpi);
+    if (self.config.window_padding_balance) {
+        self.size.balancePadding(explicit);
+    } else {
+        self.size.padding = explicit;
+    }
+    self.size.padding.top = @max(self.size.padding.top, self.size.content_inset_top);
+}
+
+/// Set the height in pixels of the band at the top that the host covers
+/// with translucent chrome. The grid starts below the band and the
+/// renderer draws the rows above the viewport into it.
+pub fn setContentInsetTop(self: *Surface, inset: u32) !void {
+    if (self.size.content_inset_top == inset) return;
+    self.size.content_inset_top = inset;
+    try self.resize(self.size.screen);
+    try self.queueRender();
 }
 
 /// Called to set the preedit state for character input. Preedit is used
@@ -3652,14 +3669,9 @@ pub fn contentScaleCallback(self: *Surface, content_scale: apprt.ContentScale) !
 
     try self.setFontSize(size);
 
-    // Update our padding which is dependent on DPI. We only do this for
-    // unbalanced padding since balanced padding is not dependent on DPI.
-    if (!self.config.window_padding_balance) {
-        self.size.padding = self.config.scaledPadding(x_dpi, y_dpi);
-    }
-
     // Force a resize event because the change in padding will affect
-    // pixel-level changes to the renderer and viewport.
+    // pixel-level changes to the renderer and viewport. The resize
+    // recalculates the DPI-dependent padding.
     try self.resize(self.size.screen);
 }
 

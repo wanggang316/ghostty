@@ -1750,6 +1750,15 @@ pub const CAPI = struct {
         surface.updateSize(w, h);
     }
 
+    /// Set the height in pixels of the band at the top of the surface that
+    /// the host covers with translucent chrome. The grid starts below the
+    /// band; the rows above the viewport scroll into it.
+    export fn ghostty_surface_set_content_inset_top(surface: *Surface, inset: u32) void {
+        surface.core_surface.setContentInsetTop(inset) catch |err| {
+            log.err("error setting content inset err={}", .{err});
+        };
+    }
+
     /// Return the size information a surface has.
     export fn ghostty_surface_size(surface: *Surface) SurfaceSize {
         const grid_size = surface.core_surface.size.grid();
