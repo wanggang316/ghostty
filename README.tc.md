@@ -64,6 +64,13 @@ symbols can delegate down to the existing pty layer.
   empty id. The struct mirrors the field set of the upstream libghostty-vt
   `GhosttyTerminalProgramStatus`. touch-code keeps the records per pane.
   Upstream has no app-path action, so this patch stays after a rebase.
+- `fix(renderer): clear the Metal display callback on deinit` — the
+  embedder's view keeps the `IOSurfaceLayer` after `ghostty_surface_free`,
+  and a later bounds change makes Core Animation call `display` on it. The
+  layer's `display_ctx` still pointed at the freed renderer, so the call read
+  freed memory (`EXC_BAD_ACCESS` in `object_getClass` under
+  `CA::Context::commit_transaction`). Drop this patch once upstream clears
+  the callback itself.
 
 ## Upstream PR Status
 

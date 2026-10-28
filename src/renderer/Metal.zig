@@ -156,6 +156,11 @@ pub fn init(alloc: Allocator, opts: rendererpkg.Options) !Metal {
 }
 
 pub fn deinit(self: *Metal) void {
+    // The view keeps the layer after the surface is freed, and a later
+    // bounds change makes Core Animation call `display` on it. Clear the
+    // callback so that call does not reach the freed renderer.
+    self.layer.layer.setInstanceVariable("display_cb", .{ .value = null });
+    self.layer.layer.setInstanceVariable("display_ctx", .{ .value = null });
     self.queue.release();
     self.device.release();
     self.layer.release();
