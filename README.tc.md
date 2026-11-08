@@ -71,6 +71,13 @@ symbols can delegate down to the existing pty layer.
   freed memory (`EXC_BAD_ACCESS` in `object_getClass` under
   `CA::Context::commit_transaction`). Drop this patch once upstream clears
   the callback itself.
+- `fix(termio): report an empty window title as empty` — upstream reports an
+  empty OSC 0/2 title, and a pwd change before any title, as a title equal
+  to the pwd. touch-code shows its own fallback (the working directory at the
+  prompt, else the last title; touch-code ADR 0009) and cannot tell that
+  stand-in from a program that sets its title to the pwd. `set_title` now
+  carries only titles the program set, and an empty string for an empty
+  title.
 
 ## Upstream PR Status
 

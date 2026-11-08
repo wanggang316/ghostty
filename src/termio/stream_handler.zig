@@ -1013,15 +1013,11 @@ pub const StreamHandler = struct {
         // Special handling for the empty title. We treat the empty title
         // as resetting to as if we never saw a title. Other terminals
         // behave this way too (e.g. iTerm2).
+        //
+        // touch-code: report the empty title as empty, not as the pwd. The
+        // embedder resolves its own fallback, and a pwd stand-in cannot be
+        // told apart from a program that sets its title to the pwd.
         if (title.len == 0) {
-            // If we have a pwd then we set the title as the pwd else
-            // we just set it to blank.
-            if (self.terminal.getPwd()) |pwd| pwd: {
-                if (pwd.len >= buf.len) break :pwd;
-                @memcpy(buf[0..pwd.len], pwd);
-                buf[pwd.len] = 0;
-            }
-
             self.surfaceMessageWriter(.{ .set_title = buf });
             self.seen_title = false;
             return;
@@ -1201,11 +1197,9 @@ pub const StreamHandler = struct {
             log.warn("error notifying surface of pwd change err={}", .{err});
         }
 
-        // If we haven't seen a title, use our pwd as the title.
-        if (!self.seen_title) {
-            try self.windowTitle(path);
-            self.seen_title = false;
-        }
+        // touch-code: do not use the pwd as the title when no title was
+        // seen. The embedder has the pwd from `pwd_change` and decides what
+        // to show; a set_title must be a title the program set.
     }
 
     fn colorOperation(
