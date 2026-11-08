@@ -78,6 +78,14 @@ symbols can delegate down to the existing pty layer.
   stand-in from a program that sets its title to the pwd. `set_title` now
   carries only titles the program set, and an empty string for an empty
   title.
+- `fix(termio): report the color scheme when mode 2031 is enabled` — a
+  program that enables mode 2031 gets one `CSI ? 997 ; 1|2 n` report for the
+  current appearance at once, not only on the next change. touch-code frees a
+  hidden pane's surface and later replays the zmx session's terminal state,
+  mode 2031 enable included, into a new surface. An appearance change while
+  the pane was hidden reached no program, so the program kept the old theme.
+  Disabling the mode sends nothing. Drop this patch if upstream adds the same
+  report.
 
 ## Upstream PR Status
 

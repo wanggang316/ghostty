@@ -750,11 +750,22 @@ pub fn colorSchemeReportLocked(self: *Termio, td: *ThreadData, force: bool) !voi
     if (!force and !self.renderer_state.terminal.modes.get(.report_color_scheme)) {
         return;
     }
-    const output = switch (self.config.conditional_state.theme) {
+    const output = colorSchemeReportSequence(self.config.conditional_state.theme);
+    try self.queueWrite(td, output, false);
+}
+
+/// The mode 2031 DSR report for the given appearance.
+pub fn colorSchemeReportSequence(theme: configpkg.ConditionalState.Theme) []const u8 {
+    return switch (theme) {
         .light => "\x1B[?997;2n",
         .dark => "\x1B[?997;1n",
     };
-    try self.queueWrite(td, output, false);
+}
+
+test colorSchemeReportSequence {
+    const testing = std.testing;
+    try testing.expectEqualStrings("\x1B[?997;1n", colorSchemeReportSequence(.dark));
+    try testing.expectEqualStrings("\x1B[?997;2n", colorSchemeReportSequence(.light));
 }
 
 pub fn getProcessInfo(self: *Termio, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {

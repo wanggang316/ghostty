@@ -757,6 +757,10 @@ pub const StreamHandler = struct {
                 .focused = self.terminal.flags.focused,
             }),
 
+            .report_color_scheme => if (reportColorSchemeMessage(enabled)) |msg| {
+                self.messageWriter(msg);
+            },
+
             .mouse_event_x10 => {
                 if (enabled) {
                     self.terminal.flags.mouse_event = .x10;
@@ -1577,3 +1581,26 @@ pub const StreamHandler = struct {
         }
     }
 };
+
+/// The termio message to send when a program sets mode 2031 (color scheme
+/// updates), if any. Enabling the mode reports the current appearance once.
+/// A program can enable the mode while no surface is attached, for example
+/// when the embedder replays saved terminal state into a new surface. It can
+/// then miss an appearance change, and without this report it keeps the old
+/// appearance until the next change.
+fn reportColorSchemeMessage(enabled: bool) ?termio.Message {
+    if (!enabled) return null;
+    return .{ .color_scheme_report = .{ .force = false } };
+}
+
+test "mode 2031: enabling the mode requests one color scheme report" {
+    const msg = reportColorSchemeMessage(true) orelse return error.TestExpectedMessage;
+    try std.testing.expect(msg == .color_scheme_report);
+    // Not forced: the termio thread sends the report only while the mode is
+    // still enabled when it handles the message.
+    try std.testing.expect(!msg.color_scheme_report.force);
+}
+
+test "mode 2031: disabling the mode requests no color scheme report" {
+    try std.testing.expect(reportColorSchemeMessage(false) == null);
+}
